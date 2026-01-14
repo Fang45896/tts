@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>語音聊天助理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #fff;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+        }
+
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .assistant-message {
+            background: rgba(255, 255, 255, 0.15);
+            color: #e0e0e0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-record {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-record:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-record.recording {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 65, 108, 0.7); }
+            50% { box-shadow: 0 0 0 15px rgba(255, 65, 108, 0); }
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-stop:hover {
+            transform: scale(1.05);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            text-align: center;
+            color: #aaa;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            min-height: 24px;
+        }
+
+        .status.processing {
+            color: #f5576c;
+        }
+
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .settings {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        .settings label {
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+
+        .settings select, .settings input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .settings select option {
+            background: #1a1a2e;
+        }
+
+        .voice-select {
+            margin-bottom: 10px;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .text-input-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .text-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+        }
+
+        .text-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .btn-send {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+        }
+
+        .btn-send:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>語音聊天助理</h1>
+
+        <div class="settings">
+            <div class="voice-select">
+                <label>語音選擇：</label>
+                <select id="voiceSelect">
+                    <option value="alloy">Alloy</option>
+                    <option value="ash">Ash</option>
+                    <option value="coral" selected>Coral</option>
+                    <option value="echo">Echo</option>
+                    <option value="fable">Fable</option>
+                    <option value="onyx">Onyx</option>
+                    <option value="nova">Nova</option>
+                    <option value="sage">Sage</option>
+                    <option value="shimmer">Shimmer</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="message assistant-message">
+                你好！我是你的語音助理。點擊麥克風按鈕開始說話，或者直接輸入文字訊息。
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-record" id="recordBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+                開始錄音
+            </button>
+            <button class="btn btn-stop" id="stopBtn" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="6" width="12" height="12"/>
+                </svg>
+                停止
+            </button>
+        </div>
+
+        <div class="text-input-container">
+            <input type="text" class="text-input" id="textInput" placeholder="或輸入文字訊息...">
+            <button class="btn btn-send" id="sendBtn">發送</button>
+        </div>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        // OpenAI API Key
+        const API_KEY = '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';
+
+        // DOM Elements
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const textInput = document.getElementById('textInput');
+        const chatContainer = document.getElementById('chatContainer');
+        const status = document.getElementById('status');
+        const voiceSelect = document.getElementById('voiceSelect');
+
+        // State
+        let mediaRecorder;
+        let audioChunks = [];
+        let conversationHistory = [
+            {
+                role: "system",
+                content: "你是一個友善且有幫助的AI助理。請用繁體中文回答問題，回答要簡潔明瞭。"
+            }
+        ];
+
+        // Initialize
+        async function init() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioChunks = [];
+                    await processAudio(audioBlob);
+                };
+
+                updateStatus('準備就緒');
+            } catch (error) {
+                updateStatus('無法存取麥克風: ' + error.message, true);
+                recordBtn.disabled = true;
+            }
+        }
+
+        // Update status
+        function updateStatus(message, isError = false) {
+            status.textContent = message;
+            status.className = 'status' + (isError ? ' error' : '');
+        }
+
+        // Add message to chat
+        function addMessage(text, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+            messageDiv.textContent = text;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Speech to Text (STT)
+        async function speechToText(audioBlob) {
+            updateStatus('正在轉換語音...');
+
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'audio.webm');
+            formData.append('model', 'whisper-1');
+
+            const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${API_KEY}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('語音轉文字失敗');
+            }
+
+            const data = await response.json();
+            return data.text;
+        }
+
+        // Chat with GPT
+        async function chat(userMessage) {
+            updateStatus('思考中...');
+
+            conversationHistory.push({
+                role: "user",
+                content: userMessage
+            });
+
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: conversationHistory,
+                    max_tokens: 500
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('聊天請求失敗');
+            }
+
+            const data = await response.json();
+            const assistantMessage = data.choices[0].message.content;
+
+            conversationHistory.push({
+                role: "assistant",
+                content: assistantMessage
+            });
+
+            return assistantMessage;
+        }
+
+        // Text to Speech (TTS)
+        async function textToSpeech(text) {
+            updateStatus('正在生成語音...');
+
+            const voice = voiceSelect.value;
+
+            const response = await fetch('https://api.openai.com/v1/audio/speech', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini-tts',
+                    input: text,
+                    voice: voice,
+                    instructions: '用友善、自然的語氣說話。',
+                    response_format: 'mp3'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('文字轉語音失敗');
+            }
+
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+
+            updateStatus('正在播放...');
+
+            return new Promise((resolve) => {
+                audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    resolve();
+                };
+                audio.play();
+            });
+        }
+
+        // Process audio (STT -> Chat -> TTS)
+        async function processAudio(audioBlob) {
+            try {
+                // STT
+                const userText = await speechToText(audioBlob);
+                if (!userText.trim()) {
+                    updateStatus('未偵測到語音');
+                    return;
+                }
+                addMessage(userText, true);
+
+                // Chat
+                const response = await chat(userText);
+                addMessage(response, false);
+
+                // TTS
+                await textToSpeech(response);
+                updateStatus('準備就緒');
+            } catch (error) {
+                updateStatus('錯誤: ' + error.message, true);
+                console.error(error);
+            }
+        }
+
+        // Process text input
+        async function processText(text) {
+            if (!text.trim()) return;
+
+            textInput.value = '';
+            addMessage(text, true);
+
+            try {
+                // Chat
+                const response = await chat(text);
+                addMessage(response, false);
+
+                // TTS
+                await textToSpeech(response);
+                updateStatus('準備就緒');
+            } catch (error) {
+                updateStatus('錯誤: ' + error.message, true);
+                console.error(error);
+            }
+        }
+
+        // Event Listeners
+        recordBtn.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'inactive') {
+                audioChunks = [];
+                mediaRecorder.start();
+                recordBtn.classList.add('recording');
+                recordBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                    錄音中...
+                `;
+                stopBtn.disabled = false;
+                updateStatus('正在錄音...');
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                recordBtn.classList.remove('recording');
+                recordBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                    開始錄音
+                `;
+                stopBtn.disabled = true;
+            }
+        });
+
+        sendBtn.addEventListener('click', () => {
+            processText(textInput.value);
+        });
+
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                processText(textInput.value);
+            }
+        });
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
