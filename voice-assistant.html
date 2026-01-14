@@ -177,6 +177,68 @@
             font-size: 0.9rem;
         }
 
+        /* Login styles */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .login-container input {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+        }
+
+        .login-container input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-login:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .login-error {
+            color: #ff6b6b;
+            text-align: center;
+            font-size: 0.9rem;
+            min-height: 20px;
+        }
+
+        .main-content {
+            display: none;
+        }
+
+        .main-content.visible {
+            display: block;
+        }
+
+        .login-section {
+            display: block;
+        }
+
+        .login-section.hidden {
+            display: none;
+        }
+
         .settings select option {
             background: #1a1a2e;
         }
@@ -238,6 +300,18 @@
     <div class="container">
         <h1>語音聊天助理</h1>
 
+        <!-- Login Section -->
+        <div class="login-section" id="loginSection">
+            <div class="login-container">
+                <input type="text" id="userIdInput" placeholder="使用者帳號">
+                <input type="password" id="passwordInput" placeholder="密碼">
+                <button class="btn btn-login" id="loginBtn">登入</button>
+                <div class="login-error" id="loginError"></div>
+            </div>
+        </div>
+
+        <!-- Main Content (hidden until login) -->
+        <div class="main-content" id="mainContent">
         <div class="settings">
             <div class="voice-select">
                 <label>語音選擇：</label>
@@ -287,11 +361,23 @@
         </div>
 
         <div class="status" id="status"></div>
+        </div><!-- End of main-content -->
     </div>
 
     <script>
-        // OpenAI API Key
-        const API_KEY = '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';
+        // OpenAI API Key (will be fetched from server)
+        let API_KEY = '';
+
+        // API Key endpoint
+        const API_KEY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwzY0bAkixaexeIMNpxlPi_9LZC2vtgI78Uh3llpBtglQeSdiCLn3wedAL-f1GCcGF-Wg/exec';
+
+        // Login DOM Elements
+        const loginSection = document.getElementById('loginSection');
+        const mainContent = document.getElementById('mainContent');
+        const userIdInput = document.getElementById('userIdInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginError = document.getElementById('loginError');
 
         // DOM Elements
         const listenBtn = document.getElementById('listenBtn');
@@ -428,6 +514,47 @@
                 updateStatus('無法存取麥克風: ' + error.message, true);
                 listenBtn.disabled = true;
                 return false;
+            }
+        }
+
+        // Login function
+        async function login(userId, password) {
+            loginBtn.disabled = true;
+            loginBtn.textContent = '登入中...';
+            loginError.textContent = '';
+
+            try {
+                const response = await fetch(API_KEY_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain',
+                    },
+                    body: JSON.stringify({
+                        userid: userId,
+                        pwd: password
+                    }),
+                    redirect: 'follow'
+                });
+
+                const data = await response.json();
+
+                if (data.status === "success" && data.apiKey) {
+                    API_KEY = data.apiKey;
+                    loginSection.classList.add('hidden');
+                    mainContent.classList.add('visible');
+                    await init();
+                    return true;
+                } else {
+                    loginError.textContent = data.message || '登入失敗，請檢查帳號密碼';
+                    return false;
+                }
+            } catch (error) {
+                console.error('登入錯誤:', error);
+                loginError.textContent = '連線錯誤，請稍後再試';
+                return false;
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登入';
             }
         }
 
@@ -658,16 +785,17 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'gpt-4o-mini-tts',
+                    model: 'tts-1',
                     input: text,
                     voice: voice,
-                    instructions: '用友善、自然的語氣說話。',
                     response_format: 'mp3'
                 })
             });
 
             if (!response.ok) {
-                throw new Error('文字轉語音失敗');
+                const errorData = await response.json().catch(() => ({}));
+                console.error('TTS API 錯誤:', response.status, errorData);
+                throw new Error(`文字轉語音失敗: ${response.status} - ${errorData.error?.message || '未知錯誤'}`);
             }
 
             const audioBlob = await response.blob();
@@ -778,8 +906,28 @@
             }
         });
 
-        // Initialize on load
-        init();
+        // Login event listeners
+        loginBtn.addEventListener('click', () => {
+            const userId = userIdInput.value.trim();
+            const password = passwordInput.value;
+            if (userId && password) {
+                login(userId, password);
+            } else {
+                loginError.textContent = '請輸入帳號和密碼';
+            }
+        });
+
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loginBtn.click();
+            }
+        });
+
+        userIdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                passwordInput.focus();
+            }
+        });
     </script>
 </body>
 </html>
